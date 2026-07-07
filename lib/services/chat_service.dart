@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -50,58 +51,129 @@ class ChatService extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    // Create a streaming message placeholder
+    final streamMsg = ChatMessage(
+      role: 'assistant',
+      content: '',
+      isStreaming: true,
+    );
+    _messages.add(streamMsg);
+    notifyListeners();
+
     try {
-      final response = await http
-          .post(
-            Uri.parse(ApiConfig.chatEndpoint),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'query': text.trim(),
-              'top_k': 5,
-              'temperature': 0.3,
-            }),
-          )
-          .timeout(ApiConfig.chatTimeout);
+      final request = http.Request('POST', Uri.parse(ApiConfig.chatStreamEndpoint));
+      request.headers['Content-Type'] = 'application/json';
+      request.body = jsonEncode({
+        'query': text.trim(),
+        'top_k': 5,
+        'use_rag': true,
+        'temperature': 0.3,
+      });
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final answer = data['answer'] as String? ?? 'Tidak ada jawaban.';
-        final rawSources = data['sources'] as List<dynamic>?;
-        final sources = rawSources
-            ?.map((s) => s is Map<String, dynamic>
-                ? '${s['source'] ?? 'Sumber'} (${s['relevance'] ?? ''})'
-                : s.toString())
-            .toList();
+      final client = http.Client();
+      final response = await client.send(request);
 
-        _messages.add(ChatMessage(
-          role: 'assistant',
-          content: answer,
-          sources: sources,
-        ));
-      } else {
-        _messages.add(ChatMessage(
-          role: 'assistant',
-          content: '⚠️ **Error ${response.statusCode}**\n\n'
-              'Server mengembalikan error. Silakan coba lagi nanti.',
-          isError: true,
-        ));
+      if (response.statusCode != 200) {
+        _finalizeStreamingMessage(
+          '⚠️ **Error ${response.statusCode}**\n\nServer mengembalikan error. Silakan coba lagi nanti.',
+          null,
+          true,
+        );
+        client.close();
+        return;
       }
+
+      String fullAnswer = '';
+      List<String> streamSources = [];
+      String lastEvent = '';
+      final lineStream = response.stream
+          .transform(utf8.decoder)
+          .transform(const LineSplitter());
+
+      await for (final line in lineStream) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty) continue;
+
+        if (trimmed.startsWith('event: ')) {
+          lastEvent = trimmed.substring(7);
+          continue;
+        }
+
+        if (trimmed.startsWith('data: ')) {
+          final jsonStr = trimmed.substring(6);
+          try {
+            if (lastEvent == 'sources') {
+              final parsed = jsonDecode(jsonStr) as List<dynamic>;
+              streamSources = parsed.map((s) {
+                if (s is Map<String, dynamic>) {
+                  return '${s['source'] ?? 'Sumber'} (${s['relevance'] ?? ''})';
+                }
+                return s.toString();
+              }).toList();
+              lastEvent = '';
+              continue;
+            }
+
+            final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+            if (data.containsKey('token')) {
+              final token = data['token'] as String? ?? '';
+              if (token.isNotEmpty) {
+                fullAnswer += token;
+                _updateStreamingMessage(fullAnswer);
+              }
+            } else if (data.containsKey('full_answer')) {
+              fullAnswer = data['full_answer'] as String? ?? fullAnswer;
+            }
+          } catch (_) {
+            // Ignore JSON parse errors
+          }
+        }
+      }
+
+      client.close();
+      _finalizeStreamingMessage(fullAnswer, streamSources, false);
     } catch (e) {
       String errorMsg;
       if (e is http.ClientException) {
-        errorMsg = '⚠️ **Koneksi gagal**\n\n'
-            'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+        errorMsg = '⚠️ **Koneksi gagal**\n\nTidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+      } else if (e is TimeoutException) {
+        errorMsg = '⚠️ **Waktu habis**\n\nServer tidak merespons tepat waktu. Silakan coba lagi.';
       } else {
-        errorMsg = '⚠️ **Terjadi kesalahan**\n\n'
-            '$e';
+        errorMsg = '⚠️ **Terjadi kesalahan**\n\n$e';
       }
+      _finalizeStreamingMessage(errorMsg, null, true);
+    }
+  }
+
+  void _updateStreamingMessage(String accumulatedText) {
+    final index = _messages.length - 1;
+    if (index >= 0 && _messages[index].isStreaming) {
+      _messages[index] = _messages[index].copyWith(
+        content: accumulatedText,
+      );
+      notifyListeners();
+    }
+  }
+
+  void _finalizeStreamingMessage(String fullContent, List<String>? sources, bool isError) {
+    final index = _messages.length - 1;
+    if (index >= 0 && _messages[index].isStreaming) {
+      _messages[index] = _messages[index].copyWith(
+        content: fullContent,
+        sources: sources,
+        isError: isError,
+        isStreaming: false,
+      );
+    } else {
+      // Fallback: add a new message
       _messages.add(ChatMessage(
         role: 'assistant',
-        content: errorMsg,
-        isError: true,
+        content: fullContent,
+        sources: sources,
+        isError: isError,
       ));
     }
-
     _isLoading = false;
     notifyListeners();
   }

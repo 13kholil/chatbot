@@ -16,6 +16,7 @@ class ApiConfig {
 
   // RAG endpoints
   static const String chatEndpoint = '$ragUrl/chat';
+  static const String chatStreamEndpoint = '$ragUrl/chat/stream';
   static const String searchEndpoint = '$ragUrl/search';
   static const String healthEndpoint = '$ragUrl/health';
 

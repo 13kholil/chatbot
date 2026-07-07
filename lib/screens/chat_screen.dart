@@ -53,10 +53,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final chatService = context.watch<ChatService>();
     final theme = Theme.of(context);
 
-    // Auto-scroll
-    if (!chatService.isLoading) {
-      _scrollToBottom();
-    }
+    // Auto-scroll (always during streaming)
+    _scrollToBottom();
 
     return Scaffold(
       appBar: AppBar(
@@ -145,8 +143,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
           ),
 
-          // Loading indicator
-          if (chatService.isLoading)
+          // Loading indicator (only show when starting, hide during streaming)
+          if (chatService.isLoading &&
+              !chatService.messages.any((m) => m.isStreaming))
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: LinearProgressIndicator(
