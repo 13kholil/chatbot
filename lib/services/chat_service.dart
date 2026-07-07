@@ -60,7 +60,9 @@ class ChatService extends ChangeNotifier {
     _messages.add(streamMsg);
     notifyListeners();
 
+    http.Client? client;
     try {
+      client = http.Client();
       final request = http.Request('POST', Uri.parse(ApiConfig.chatStreamEndpoint));
       request.headers['Content-Type'] = 'application/json';
       request.body = jsonEncode({
@@ -70,7 +72,6 @@ class ChatService extends ChangeNotifier {
         'temperature': 0.3,
       });
 
-      final client = http.Client();
       final response = await client.send(request);
 
       if (response.statusCode != 200) {
@@ -79,7 +80,6 @@ class ChatService extends ChangeNotifier {
           null,
           true,
         );
-        client.close();
         return;
       }
 
@@ -122,16 +122,13 @@ class ChatService extends ChangeNotifier {
                 fullAnswer += token;
                 _updateStreamingMessage(fullAnswer);
               }
-            } else if (data.containsKey('full_answer')) {
-              fullAnswer = data['full_answer'] as String? ?? fullAnswer;
             }
           } catch (_) {
-            // Ignore JSON parse errors
+            // Ignore JSON parse errors from incomplete lines
           }
         }
       }
 
-      client.close();
       _finalizeStreamingMessage(fullAnswer, streamSources, false);
     } catch (e) {
       String errorMsg;
@@ -143,6 +140,8 @@ class ChatService extends ChangeNotifier {
         errorMsg = '⚠️ **Terjadi kesalahan**\n\n$e';
       }
       _finalizeStreamingMessage(errorMsg, null, true);
+    } finally {
+      client?.close();
     }
   }
 
@@ -166,7 +165,6 @@ class ChatService extends ChangeNotifier {
         isStreaming: false,
       );
     } else {
-      // Fallback: add a new message
       _messages.add(ChatMessage(
         role: 'assistant',
         content: fullContent,
