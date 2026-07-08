@@ -40,8 +40,8 @@ class _ChatScreenState extends State<ChatScreen> {
       final chatService = context.read<ChatService>();
       chatService.addWelcomeMessage();
       chatService.addListener(_onMessagesChanged);
-    _controller.addListener(() => setState(() {}));
     });
+    _controller.addListener(() => setState(() {}));
   }
 
   @override
@@ -118,7 +118,7 @@ class _ChatScreenState extends State<ChatScreen> {
     buffer.writeln('=== LPSE Bulukumba Chat Export ===');
     buffer.writeln('Tanggal: \${DateTime.now().toString().substring(0, 19)}');
     buffer.writeln('---');
-    buffer.writeln('');;
+    buffer.writeln('');
     for (final msg in messages) {
       final role = msg.isUser ? 'Anda' : 'AI';
     buffer.writeln('[$role]');
@@ -316,7 +316,7 @@ class _ChatScreenState extends State<ChatScreen> {
           itemBuilder: (context, index) {
             final message = messages[index];
             return MessageBubble(
-              key: ValueKey('${message.hashCode}_${message.timestamp}'),
+              key: ValueKey(message.timestamp.millisecondsSinceEpoch),
               message: message,
               showSources: _showSources,
             );
