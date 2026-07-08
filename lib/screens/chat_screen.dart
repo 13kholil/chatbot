@@ -12,7 +12,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
+class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
@@ -40,12 +40,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       final chatService = context.read<ChatService>();
       chatService.loadMessages();
       chatService.addListener(_onMessagesChanged);
+    _controller.addListener(() => setState(() {}));
     });
   }
 
   @override
   void dispose() {
     context.read<ChatService>().removeListener(_onMessagesChanged);
+    _controller.removeListener(() => setState(() {}));
     _controller.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
