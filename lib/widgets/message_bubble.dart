@@ -38,6 +38,15 @@ class _MessageBubbleState extends State<MessageBubble>
   }
 
   @override
+  void didUpdateWidget(MessageBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.message.isStreaming && !widget.message.isStreaming) {
+      _animCtrl.stop();
+      _animCtrl.forward(from: 0);
+    }
+  }
+
+  @override
   void dispose() {
     _animCtrl.dispose();
     super.dispose();
@@ -199,9 +208,16 @@ class _MessageBubbleState extends State<MessageBubble>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (widget.message.isError) _buildErrorHeader(),
-                      if (widget.message.isStreaming && widget.message.content.isEmpty)
-                        _buildTypingIndicator()
-                      else
+                      if (widget.message.isStreaming) ...[
+                        if (widget.message.content.isNotEmpty) ...[
+                          Text(
+                            widget.message.content,
+                            style: TextStyle(fontSize: 15, height: 1.4, color: textColor),
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                        _buildTypingIndicator(),
+                      ] else
                         Text(
                           widget.message.content,
                           style: TextStyle(fontSize: 15, height: 1.4, color: textColor),
