@@ -38,7 +38,7 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final chatService = context.read<ChatService>();
-      chatService.loadMessages();
+      chatService.addWelcomeMessage();
       chatService.addListener(_onMessagesChanged);
     _controller.addListener(() => setState(() {}));
     });
@@ -117,10 +117,11 @@ class _ChatScreenState extends State<ChatScreen> {
     final buffer = StringBuffer();
     buffer.writeln('=== LPSE Bulukumba Chat Export ===');
     buffer.writeln('Tanggal: \${DateTime.now().toString().substring(0, 19)}');
-    buffer.writeln('---
-');
+    buffer.writeln('---');
+    buffer.writeln('');;
     for (final msg in messages) {
-      buffer.writeln('[\${msg.isUser ? 'Anda' : 'AI'}]');
+      final role = msg.isUser ? 'Anda' : 'AI';
+    buffer.writeln('[$role]');
       buffer.writeln(msg.content);
       buffer.writeln('');
     }
@@ -173,7 +174,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       actions: [
         IconButton(
-          icon: Icon(_showSources ? Icons.source_rounded : Icons.source_off_rounded, color: Colors.white.withOpacity(0.8)),
+          icon: Icon(_showSources ? Icons.source_rounded : Icons.toggle_off_rounded, color: Colors.white.withOpacity(0.8)),
           tooltip: 'Toggle sumber',
           onPressed: () => setState(() => _showSources = !_showSources),
         ),
@@ -315,7 +316,7 @@ class _ChatScreenState extends State<ChatScreen> {
           itemBuilder: (context, index) {
             final message = messages[index];
             return MessageBubble(
-              key: ValueKey('${message.id}_${message.timestamp}'),
+              key: ValueKey('${message.hashCode}_${message.timestamp}'),
               message: message,
               showSources: _showSources,
             );
@@ -511,7 +512,7 @@ class _ChatScreenState extends State<ChatScreen> {
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(20),
-                onPressed: () => _sendMessage(_controller.text),
+                onTap: () => _sendMessage(_controller.text),
                 child: Container(
                   width: 44, height: 44, alignment: Alignment.center,
                   child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),

@@ -13,7 +13,7 @@ class MessageBubble extends StatefulWidget {
     this.showSources = true,
   });
 
-  @Override
+  @override
   State<MessageBubble> createState() => _MessageBubbleState();
 }
 
@@ -24,7 +24,7 @@ class _MessageBubbleState extends State<MessageBubble>
   late Animation<double> _fadeAnimation;
   bool _sourcesExpanded = false;
 
-  @Override
+  @override
   void initState() {
     super.initState();
     _animController = AnimationController(
@@ -48,13 +48,13 @@ class _MessageBubbleState extends State<MessageBubble>
     _animController.forward();
   }
 
-  @Override
+  @override
   void dispose() {
     _animController.dispose();
     super.dispose();
   }
 
-  @Override
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
