@@ -1,8 +1,9 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../models/chat_message.dart';
 
-class MessageBubble extends StatelessWidget {
+class MessageBubble extends StatefulWidget {
   final ChatMessage message;
   final bool showSources;
 
@@ -12,162 +13,69 @@ class MessageBubble extends StatelessWidget {
     this.showSources = true,
   });
 
-  @override
+  @Override
+  State<MessageBubble> createState() => _MessageBubbleState();
+}
+
+class _MessageBubbleState extends State<MessageBubble>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animController;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+  bool _sourcesExpanded = false;
+
+  @Override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutCubic,
+    ));
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeIn,
+    ));
+    _animController.forward();
+  }
+
+  @Override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  @Override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
 
-    if (message.isSystem) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primaryContainer.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: theme.colorScheme.primary.withOpacity(0.1),
-            ),
-          ),
-          child: MarkdownBody(
-            data: message.content,
-            styleSheet: MarkdownStyleSheet(
-              p: TextStyle(
-                fontSize: 13,
-                color: theme.colorScheme.onSurface,
-                height: 1.5,
-              ),
-              strong: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-          ),
-        ),
-      );
+    if (widget.message.isSystem) {
+      return FadeTransition(opacity: _fadeAnimation, child: _buildSystemMessage(colorScheme),);
     }
 
-    final isUser = message.isUser;
-    final isError = message.isError;
+    final isUser = widget.message.isUser;
+    final isError = widget.message.isError;
+    final isStreaming = widget.message.isStreaming;
+  
+    return SlideTransition(position: _slideAnimation, child: FadeTransition(opacity: _fadeAnimation, child: _buildBubble(isUser, isError, isStreaming, isDark, colorScheme)));
+  }
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: isUser ? 56 : 12,
-        right: isUser ? 12 : 56,
-        top: 4,
-        bottom: 4,
-      ),
-      child: Column(
-        crossAxisAlignment:
-            isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: isError
-                  ? theme.colorScheme.errorContainer
-                  : isUser
-                      ? theme.colorScheme.primaryContainer
-                      : theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(18),
-                topRight: const Radius.circular(18),
-                bottomLeft: Radius.circular(isUser ? 18 : 4),
-                bottomRight: Radius.circular(isUser ? 4 : 18),
-              ),
-            ),
-            child: isUser
-                ? Text(
-                    message.content,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: theme.colorScheme.onPrimaryContainer,
-                      height: 1.4,
-                    ),
-                  )
-                : MarkdownBody(
-                    data: message.content,
-                    styleSheet: MarkdownStyleSheet(
-                      p: TextStyle(
-                        fontSize: 14,
-                        color: isError
-                            ? theme.colorScheme.onErrorContainer
-                            : theme.colorScheme.onSurface,
-                        height: 1.5,
-                      ),
-                      strong: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      code: TextStyle(
-                        fontSize: 12,
-                        backgroundColor: Colors.grey.shade200,
-                        fontFamily: 'monospace',
-                      ),
-                      codeblockDecoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      blockquoteDecoration: BoxDecoration(
-                        border: Border(
-                          left: BorderSide(
-                            color: theme.colorScheme.primary,
-                            width: 3,
-                          ),
-                        ),
-                      ),
-                      h1: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                      h2: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                      h3: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                      listBullet: TextStyle(
-                        fontSize: 14,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-          ),
-          if (!isUser && showSources && message.sources != null && message.sources!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(left: 4, top: 4),
-              child: Wrap(
-                spacing: 4,
-                runSpacing: 2,
-                children: message.sources!.map((source) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.tertiaryContainer
-                          .withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      source,
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: theme.colorScheme.onTertiaryContainer,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-        ],
-      ),
-    );
+  Widget _buildSystemMessage(ColorScheme colorScheme) {
+    return Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Container());
+  }
+
+  Widget _buildBubble(bool isUser, bool isError, bool isStreaming, bool isDark, ColorScheme colorScheme) {
+    return const SizedBox.shrink();
   }
 }

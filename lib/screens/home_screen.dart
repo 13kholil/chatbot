@@ -1,10 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../services/chat_service.dart';
-import '../services/sirup_api_service.dart';
-import 'chat_screen.dart';
-import 'tender_screen.dart';
-import 'penyedia_screen.dart';
+import "package:flutter/material.dart";
+import "package:provider/provider.dart";
+import "../services/sirup_api_service.dart";
+import "chat_screen.dart";
+import "tender_screen.dart";
+import "penyedia_screen.dart";
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,53 +24,49 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Pre-load data
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<SirupApiService>().fetchStats();
-      context.read<SirupApiService>().fetchPackages(refresh: true);
-      context.read<SirupApiService>().fetchPenyedia(refresh: true);
+      final SirupApiService sirupService = context.read<SirupApiService>();
+      sirupService.fetchStats();
+      sirupService.fetchPackages();
+      sirupService.fetchPenyedia();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final chatService = context.watch<ChatService>();
-    final sirupService = context.watch<SirupApiService>();
-
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      body: AnimatedSwitcher(
+        duration: Duration(milliseconds: 300),
+        switchInCurve: Curves.easeInOut,
+        switchOutCurve: Curves.easeInOut,
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        child: KeyedSubtree(
+          key: ValueKey<int>(_currentIndex),
+          child: _screens[_currentIndex],
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() => _currentIndex = index);
-        },
-        destinations: [
+        onDestinationSelected: (int i) => setState(() => _currentIndex = i),
+        animationDuration: Duration(milliseconds: 500),
+        destinations: const <NavigationDestination>[
           NavigationDestination(
-            icon: const Badge(
-              isLabelVisible: false,
-              child: Icon(Icons.chat_bubble_outline),
-            ),
-            selectedIcon: const Badge(
-              isLabelVisible: false,
-              child: Icon(Icons.chat_bubble),
-            ),
-            label: 'Chat',
+            icon: Icon(Icons.chat_bubble_outline_rounded),
+            selectedIcon: Icon(Icons.chat_bubble_rounded),
+            label: "Chat",
           ),
           NavigationDestination(
-            icon: Badge(
-              isLabelVisible: sirupService.packages.isNotEmpty,
-              child: const Icon(Icons.notifications_outlined),
-            ),
-            selectedIcon: const Icon(Icons.notifications),
-            label: 'Tender',
+            icon: Icon(Icons.assignment_outlined),
+            selectedIcon: Icon(Icons.assignment_rounded),
+            label: "Tender",
           ),
           NavigationDestination(
-            icon: const Icon(Icons.business_outlined),
-            selectedIcon: const Icon(Icons.business),
-            label: 'Penyedia',
+            icon: Icon(Icons.business_outlined),
+            selectedIcon: Icon(Icons.business_rounded),
+            label: "Penyedia",
           ),
         ],
       ),
